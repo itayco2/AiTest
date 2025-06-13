@@ -1,0 +1,246 @@
+<!-- src/app/components/avatar/avatar-viewer/avatar-viewer.component.html -->
+<div class="avatar-viewer-container">
+  <!-- 3D Canvas Container -->
+  <div class="canvas-wrapper">
+    <div #canvasContainer class="canvas-container"></div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" *ngIf="loading">
+      <mat-spinner></mat-spinner>
+      <p>Loading 3D Model...</p>
+    </div>
+    
+    <!-- Error Message -->
+    <div class="error-overlay" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ error }}</p>
+      <button mat-button (click)="error = undefined">Dismiss</button>
+    </div>
+  </div>
+  
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <!-- View Controls -->
+    <div class="view-controls">
+      <h3>Camera View</h3>
+      <div class="view-buttons">
+        <button 
+          mat-raised-button 
+          [color]="currentView === 'front' ? 'primary' : ''"
+          (click)="setView('front')"
+          matTooltip="Front View"
+        >
+          <mat-icon>visibility</mat-icon>
+          Front
+        </button>
+        
+        <button 
+          mat-raised-button 
+          [color]="currentView === 'side' ? 'primary' : ''"
+          (click)="setView('side')"
+          matTooltip="Side View"
+        >
+          <mat-icon>account_box</mat-icon>
+          Side
+        </button>
+        
+        <button 
+          mat-raised-button 
+          [color]="currentView === 'back' ? 'primary' : ''"
+          (click)="setView('back')"
+          matTooltip="Back View"
+        >
+          <mat-icon>flip_to_back</mat-icon>
+          Back
+        </button>
+        
+        <button 
+          mat-raised-button 
+          [color]="currentView === '360' ? 'accent' : ''"
+          (click)="setView('360')"
+          matTooltip="360° Rotation with Walk Animation"
+        >
+          <mat-icon>360</mat-icon>
+          360° Walk
+        </button>
+      </div>
+    </div>
+    
+    <!-- Measurement Toggle -->
+    <div class="measurement-controls">
+      <mat-slide-toggle 
+        [checked]="showMeasurements"
+        (change)="toggleMeasurements()"
+        color="primary"
+      >
+        Show Measurements
+      </mat-slide-toggle>
+    </div>
+    
+    <!-- Clothing Controls -->
+    <div class="clothing-controls" *ngIf="clothingGroups.size > 0">
+      <h3>Clothing Items</h3>
+      <mat-chip-listbox>
+        <mat-chip-option 
+          *ngFor="let item of clothingGroups | keyvalue"
+          [removable]="true"
+          (removed)="removeClothing(item.key)"
+          color="primary"
+        >
+          {{ item.key | titlecase }}
+          <mat-icon matChipRemove>cancel</mat-icon>
+        </mat-chip-option>
+      </mat-chip-listbox>
+      
+      <button 
+        mat-stroked-button 
+        color="warn"
+        (click)="removeAllClothing()"
+        class="remove-all-btn"
+      >
+        <mat-icon>clear_all</mat-icon>
+        Remove All Clothing
+      </button>
+    </div>
+    
+    <!-- Export Controls -->
+    <div class="export-controls">
+      <h3>Export Options</h3>
+      
+      <button 
+        mat-raised-button 
+        color="primary"
+        (click)="handleScreenshot()"
+        [disabled]="loading"
+      >
+        <mat-icon>photo_camera</mat-icon>
+        Take Screenshot
+      </button>
+      
+      <button 
+        mat-raised-button 
+        color="accent"
+        (click)="handleExport()"
+        [disabled]="loading"
+      >
+        <mat-icon>download</mat-icon>
+        Export 3D Model
+      </button>
+    </div>
+  </div>
+  
+  <!-- Side Panel Info -->
+  <div class="info-panel" *ngIf="avatarData">
+    <h3>Avatar Information</h3>
+    
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Body Measurements</mat-card-title>
+        <mat-card-subtitle>
+          Avatar ID: {{ avatarData.avatarId }}
+        </mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="measurements-grid">
+          <div class="info-item" *ngIf="avatarData.measurements?.height">
+            <mat-icon color="primary">height</mat-icon>
+            <div class="info-content">
+              <span class="label">Height</span>
+              <span class="value">{{ avatarData.measurements.height }} cm</span>
+            </div>
+          </div>
+          
+          <div class="info-item" *ngIf="avatarData.measurements?.weight">
+            <mat-icon color="primary">fitness_center</mat-icon>
+            <div class="info-content">
+              <span class="label">Weight</span>
+              <span class="value">{{ avatarData.measurements.weight }} kg</span>
+            </div>
+          </div>
+          
+          <div class="info-item" *ngIf="avatarData.measurements?.chest">
+            <mat-icon color="primary">straighten</mat-icon>
+            <div class="info-content">
+              <span class="label">Chest</span>
+              <span class="value">{{ avatarData.measurements.chest }} cm</span>
+            </div>
+          </div>
+          
+          <div class="info-item" *ngIf="avatarData.measurements?.waist">
+            <mat-icon color="primary">straighten</mat-icon>
+            <div class="info-content">
+              <span class="label">Waist</span>
+              <span class="value">{{ avatarData.measurements.waist }} cm</span>
+            </div>
+          </div>
+          
+          <div class="info-item" *ngIf="avatarData.measurements?.hips">
+            <mat-icon color="primary">straighten</mat-icon>
+            <div class="info-content">
+              <span class="label">Hips</span>
+              <span class="value">{{ avatarData.measurements.hips }} cm</span>
+            </div>
+          </div>
+          
+          <div class="info-item" *ngIf="avatarData.measurements?.neck">
+            <mat-icon color="primary">straighten</mat-icon>
+            <div class="info-content">
+              <span class="label">Neck</span>
+              <span class="value">{{ avatarData.measurements.neck }} cm</span>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    
+    <!-- Clothing Fit Info -->
+    <mat-card *ngIf="clothingGroups.size > 0" class="fit-info-card">
+      <mat-card-header>
+        <mat-card-title>Fit Analysis</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="fit-score">
+          <mat-icon color="primary">check_circle</mat-icon>
+          <span>Good Fit</span>
+        </div>
+        
+        <p class="fit-description">
+          The selected clothing items have been fitted to your measurements.
+        </p>
+        
+        <div class="recommendations">
+          <h4>Size Recommendations:</h4>
+          <mat-chip-listbox>
+            <mat-chip-option selected>
+              Based on your measurements
+            </mat-chip-option>
+          </mat-chip-listbox>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    
+    <!-- Avatar Status -->
+    <mat-card class="status-card">
+      <mat-card-header>
+        <mat-card-title>Avatar Status</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="status-item">
+          <mat-icon color="primary">face</mat-icon>
+          <span>{{ avatarData.facePhotoUrl ? 'Custom Face Applied' : 'Default Face' }}</span>
+        </div>
+        
+        <div class="status-item">
+          <mat-icon color="primary">accessibility_new</mat-icon>
+          <span>{{ avatarData.metadata?.bodyType || 'Average' }} Body Type</span>
+        </div>
+        
+        <div class="status-item">
+          <mat-icon color="primary">palette</mat-icon>
+          <span>{{ clothingGroups.size }} Clothing Items</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

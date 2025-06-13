@@ -1,0 +1,18 @@
+# Minimal requirements for Ready Player Me integration
+# Works with Python 3.13
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pydantic==2.5.0
+
+# HTTP Clients
+httpx==0.25.2
+requests==2.31.0
+
+# Environment Management
+python-dotenv==1.0.0
+
+# File handling
+aiofiles==23.2.1

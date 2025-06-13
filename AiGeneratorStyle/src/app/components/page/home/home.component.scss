@@ -1,0 +1,213 @@
+// src/app/components/home/home.component.scss
+.home-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 20px;
+}
+
+// Creation Options
+.creation-options {
+  max-width: 1200px;
+  margin: 0 auto;
+  
+  .welcome-card {
+    background: white;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    
+    mat-card-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      margin: -16px -16px 30px -16px;
+      
+      mat-card-title {
+        font-size: 32px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+      
+      mat-card-subtitle {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 18px;
+      }
+    }
+    
+    mat-card-content {
+      padding: 40px;
+    }
+  }
+  
+  .option-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+    
+    .option-item {
+      text-align: center;
+      padding: 40px 30px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+      
+      &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        border-color: #667eea;
+        background: white;
+      }
+      
+      .option-icon {
+        font-size: 64px;
+        color: #667eea;
+        margin-bottom: 20px;
+        display: block;
+        width: 100%;
+      }
+      
+      h3 {
+        font-size: 24px;
+        margin: 0 0 15px 0;
+        color: #333;
+      }
+      
+      p {
+        color: #666;
+        margin: 0 0 25px 0;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      
+      button {
+        min-width: 180px;
+        height: 48px;
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+// Back Button
+.back-button {
+  margin-bottom: 20px;
+  color: #667eea;
+  
+  mat-icon {
+    margin-right: 8px;
+  }
+}
+
+// Section containers
+.measurement-section,
+.rpm-section,
+.avatar-section {
+  max-width: 1400px;
+  margin: 0 auto;
+  animation: fadeIn 0.5s ease-out;
+}
+
+// Avatar Section
+.avatar-section {
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    
+    h2 {
+      margin: 0;
+      font-size: 28px;
+      color: #333;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+    
+    button {
+      mat-icon {
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .home-container {
+    padding: 10px;
+  }
+  
+  .welcome-card {
+    mat-card-header {
+      padding: 20px;
+      
+      mat-card-title {
+        font-size: 24px;
+      }
+      
+      mat-card-subtitle {
+        font-size: 16px;
+      }
+    }
+    
+    mat-card-content {
+      padding: 20px;
+    }
+  }
+  
+  .option-grid {
+    .option-item {
+      padding: 30px 20px;
+      
+      .option-icon {
+        font-size: 48px;
+      }
+      
+      h3 {
+        font-size: 20px;
+      }
+      
+      p {
+        font-size: 14px;
+      }
+    }
+  }
+  
+  .avatar-section {
+    .section-header {
+      flex-direction: column;
+      gap: 15px;
+      text-align: center;
+      
+      .header-actions {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+}

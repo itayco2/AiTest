@@ -1,0 +1,106 @@
+<!-- src/app/components/home/home.component.html -->
+<div class="home-container">
+  <!-- Avatar Creation Options -->
+  <div class="creation-options" *ngIf="!avatarData && !showReadyPlayerMe">
+    <mat-card class="welcome-card">
+      <mat-card-header>
+        <mat-card-title>Welcome to AI Avatar Creator</mat-card-title>
+        <mat-card-subtitle>Choose how you want to create your 3D avatar</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="option-grid">
+          <!-- Measurements Option -->
+          <div class="option-item" (click)="showMeasurementForm = true">
+            <mat-icon class="option-icon">straighten</mat-icon>
+            <h3>From Measurements</h3>
+            <p>Enter body measurements to generate a custom avatar</p>
+            <button mat-raised-button color="primary">
+              <mat-icon>arrow_forward</mat-icon>
+              Use Measurements
+            </button>
+          </div>
+          
+          <!-- Ready Player Me Option -->
+          <div class="option-item" (click)="showReadyPlayerMe = true">
+            <mat-icon class="option-icon">face</mat-icon>
+            <h3>Ready Player Me</h3>
+            <p>Create a personalized avatar from your photo</p>
+            <button mat-raised-button color="accent">
+              <mat-icon>camera_alt</mat-icon>
+              Use Photo
+            </button>
+          </div>
+          
+          <!-- Quick Upload Option -->
+          <div class="option-item">
+            <mat-icon class="option-icon">upload_file</mat-icon>
+            <h3>Quick Photo Upload</h3>
+            <p>Upload a photo for instant 3D conversion</p>
+            <input 
+              #quickUpload
+              type="file" 
+              accept="image/*" 
+              (change)="onPhotoSelected($event)" 
+              style="display: none"
+            />
+            <button mat-stroked-button (click)="quickUpload.click()">
+              <mat-icon>add_photo_alternate</mat-icon>
+              Choose Photo
+            </button>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Show measurement form if selected -->
+  <div class="measurement-section" *ngIf="showMeasurementForm && !avatarData">
+    <button mat-button (click)="showMeasurementForm = false" class="back-button">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Options
+    </button>
+    <app-measurement-form 
+      (avatarGenerated)="onAvatarGenerated($event)"
+      (measurementsChanged)="onMeasurementsChanged($event)"
+    ></app-measurement-form>
+  </div>
+  
+  <!-- Show Ready Player Me creator if selected -->
+  <div class="rpm-section" *ngIf="showReadyPlayerMe && !avatarData">
+    <button mat-button (click)="showReadyPlayerMe = false" class="back-button">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Options
+    </button>
+    <app-readyplayerme-avatar
+      (avatarCreated)="onReadyPlayerMeAvatarCreated($event)"
+      (avatarUpdated)="onAvatarUpdated($event)"
+    ></app-readyplayerme-avatar>
+  </div>
+  
+  <!-- Show avatar viewer if avatar data exists -->
+  <div class="avatar-section" *ngIf="avatarData">
+    <div class="section-header">
+      <button mat-button (click)="backToOptions()">
+        <mat-icon>arrow_back</mat-icon>
+        Back
+      </button>
+      <h2>Your 3D Avatar</h2>
+      <div class="header-actions">
+        <button mat-button (click)="editAvatar()">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+        <button mat-button (click)="resetAvatar()">
+          <mat-icon>refresh</mat-icon>
+          Reset
+        </button>
+      </div>
+    </div>
+    
+    <app-avatar-viewer
+      [avatarData]="avatarData"
+      (avatarLoaded)="onAvatarLoaded($event)"
+      (clothingFitted)="onClothingFitted($event)"
+    ></app-avatar-viewer>
+  </div>
+</div>

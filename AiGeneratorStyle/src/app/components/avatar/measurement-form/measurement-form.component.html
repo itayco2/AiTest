@@ -1,0 +1,289 @@
+<!-- src/app/components/measurement-form/measurement-form.component.html -->
+<div class="measurement-form-container">
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Create Your Avatar</mat-card-title>
+      <mat-card-subtitle>Enter your measurements to generate a personalized 3D avatar</mat-card-subtitle>
+    </mat-card-header>
+    
+    <mat-card-content>
+      <form [formGroup]="measurementForm" class="measurement-form">
+        
+        <!-- Progress Stepper -->
+        <mat-stepper linear #stepper>
+          
+          <!-- Step 1: Basic Info -->
+          <mat-step [stepControl]="basicInfoGroup" label="Basic Information">
+            <div class="step-content">
+              <h3>Basic Measurements</h3>
+              
+              <div class="form-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Height (cm)</mat-label>
+                  <input matInput type="number" formControlName="height" placeholder="170">
+                  <mat-error *ngIf="measurementForm.get('height')?.hasError('required')">
+                    Height is required
+                  </mat-error>
+                  <mat-error *ngIf="measurementForm.get('height')?.hasError('min')">
+                    Height must be at least 140cm
+                  </mat-error>
+                  <mat-error *ngIf="measurementForm.get('height')?.hasError('max')">
+                    Height cannot exceed 220cm
+                  </mat-error>
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline">
+                  <mat-label>Weight (kg)</mat-label>
+                  <input matInput type="number" formControlName="weight" placeholder="70">
+                  <mat-error *ngIf="measurementForm.get('weight')?.hasError('required')">
+                    Weight is required
+                  </mat-error>
+                  <mat-error *ngIf="measurementForm.get('weight')?.hasError('min')">
+                    Weight must be at least 40kg
+                  </mat-error>
+                  <mat-error *ngIf="measurementForm.get('weight')?.hasError('max')">
+                    Weight cannot exceed 200kg
+                  </mat-error>
+                </mat-form-field>
+              </div>
+              
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Gender</mat-label>
+                  <mat-select formControlName="gender">
+                    <mat-option value="neutral">Neutral</mat-option>
+                    <mat-option value="male">Male</mat-option>
+                    <mat-option value="female">Female</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Body Type</mat-label>
+                  <mat-select formControlName="bodyType">
+                    <mat-option value="slim">Slim</mat-option>
+                    <mat-option value="average">Average</mat-option>
+                    <mat-option value="athletic">Athletic</mat-option>
+                    <mat-option value="heavy">Heavy</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              
+              <div class="stepper-actions">
+                <button mat-button matStepperNext [disabled]="!isStepValid(0)">
+                  Next
+                  <mat-icon>arrow_forward</mat-icon>
+                </button>
+              </div>
+            </div>
+          </mat-step>
+          
+          <!-- Step 2: Body Measurements -->
+          <mat-step [stepControl]="bodyMeasurementsGroup" label="Body Measurements">
+            <div class="step-content">
+              <h3>Body Measurements</h3>
+              
+              <!-- Size Presets -->
+              <div class="size-presets">
+                <p>Quick select a standard size:</p>
+                <mat-chip-listbox>
+                  <mat-chip-option 
+                    *ngFor="let size of ['XS', 'S', 'M', 'L', 'XL', 'XXL']"
+                    (click)="selectSizePreset(size)"
+                  >
+                    {{ size }}
+                  </mat-chip-option>
+                </mat-chip-listbox>
+              </div>
+              
+              <div class="form-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Chest (cm)</mat-label>
+                  <input matInput type="number" formControlName="chest" placeholder="95">
+                  <mat-icon matSuffix 
+                    matTooltip="Measure around the fullest part of your chest"
+                    matTooltipPosition="right"
+                  >
+                    info
+                  </mat-icon>
+                  <mat-error *ngIf="measurementForm.get('chest')?.hasError('required')">
+                    Chest measurement is required
+                  </mat-error>
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline">
+                  <mat-label>Waist (cm)</mat-label>
+                  <input matInput type="number" formControlName="waist" placeholder="80">
+                  <mat-icon matSuffix 
+                    matTooltip="Measure around your natural waistline"
+                    matTooltipPosition="right"
+                  >
+                    info
+                  </mat-icon>
+                  <mat-error *ngIf="measurementForm.get('waist')?.hasError('required')">
+                    Waist measurement is required
+                  </mat-error>
+                </mat-form-field>
+              </div>
+              
+              <div class="form-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Hips (cm)</mat-label>
+                  <input matInput type="number" formControlName="hips" placeholder="95">
+                  <mat-icon matSuffix 
+                    matTooltip="Measure around the fullest part of your hips"
+                    matTooltipPosition="right"
+                  >
+                    info
+                  </mat-icon>
+                  <mat-error *ngIf="measurementForm.get('hips')?.hasError('required')">
+                    Hips measurement is required
+                  </mat-error>
+                </mat-form-field>
+              </div>
+              
+              <div class="stepper-actions">
+                <button mat-button matStepperPrevious>
+                  <mat-icon>arrow_back</mat-icon>
+                  Back
+                </button>
+                <button mat-button matStepperNext [disabled]="!isStepValid(1)">
+                  Next
+                  <mat-icon>arrow_forward</mat-icon>
+                </button>
+              </div>
+            </div>
+          </mat-step>
+          
+          <!-- Step 3: Optional Details -->
+          <mat-step label="Additional Details (Optional)">
+            <div class="step-content">
+              <h3>Additional Measurements</h3>
+              <p class="hint-text">These measurements help create a more accurate avatar</p>
+              
+              <div class="form-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Neck (cm)</mat-label>
+                  <input matInput type="number" formControlName="neck" placeholder="38">
+                  <mat-icon matSuffix 
+                    matTooltip="Measure around the base of your neck"
+                    matTooltipPosition="right"
+                  >
+                    info
+                  </mat-icon>
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline">
+                  <mat-label>Shoulders (cm)</mat-label>
+                  <input matInput type="number" formControlName="shoulders" placeholder="45">
+                  <mat-icon matSuffix 
+                    matTooltip="Measure from shoulder to shoulder across your back"
+                    matTooltipPosition="right"
+                  >
+                    info
+                  </mat-icon>
+                </mat-form-field>
+              </div>
+              
+              <div class="form-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Arm Length (cm)</mat-label>
+                  <input matInput type="number" formControlName="armLength" placeholder="60">
+                  <mat-icon matSuffix 
+                    matTooltip="Measure from shoulder to wrist with arm slightly bent"
+                    matTooltipPosition="right"
+                  >
+                    info
+                  </mat-icon>
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline">
+                  <mat-label>Leg Length (cm)</mat-label>
+                  <input matInput type="number" formControlName="legLength" placeholder="80">
+                  <mat-icon matSuffix 
+                    matTooltip="Measure from waist to ankle along the outside of leg"
+                    matTooltipPosition="right"
+                  >
+                    info
+                  </mat-icon>
+                </mat-form-field>
+              </div>
+              
+              <!-- Face Photo Upload -->
+              <div class="photo-upload-section">
+                <h4>Face Photo (Optional)</h4>
+                <p class="hint-text">Upload a front-facing photo to personalize your avatar's face</p>
+                
+                <div class="upload-area" *ngIf="!facePhotoPreview">
+                  <input 
+                    type="file" 
+                    #fileInput 
+                    accept="image/*" 
+                    (change)="onFileSelected($event)"
+                    style="display: none"
+                  >
+                  <button 
+                    mat-stroked-button 
+                    color="primary"
+                    (click)="fileInput.click()"
+                  >
+                    <mat-icon>add_a_photo</mat-icon>
+                    Choose Photo
+                  </button>
+                  <p>or drag and drop an image here</p>
+                </div>
+                
+                <div class="photo-preview" *ngIf="facePhotoPreview">
+                  <img [src]="facePhotoPreview" alt="Face preview">
+                  <button 
+                    mat-icon-button 
+                    color="warn"
+                    (click)="removeFacePhoto()"
+                    class="remove-photo"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="stepper-actions">
+                <button mat-button matStepperPrevious>
+                  <mat-icon>arrow_back</mat-icon>
+                  Back
+                </button>
+                <button 
+                  mat-raised-button 
+                  color="primary"
+                  (click)="generateAvatar()"
+                  [disabled]="!measurementForm.valid || loading"
+                >
+                  <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+                  <span *ngIf="!loading">Generate Avatar</span>
+                </button>
+              </div>
+            </div>
+          </mat-step>
+        </mat-stepper>
+        
+      </form>
+    </mat-card-content>
+  </mat-card>
+  
+  <!-- Measurement Guide -->
+  <mat-card class="guide-card">
+    <mat-card-header>
+      <mat-card-title>Measurement Guide</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-accordion>
+        <mat-expansion-panel *ngFor="let guide of measurementGuides | keyvalue">
+          <mat-expansion-panel-header>
+            <mat-panel-title>{{ guide.key | titlecase }}</mat-panel-title>
+          </mat-expansion-panel-header>
+          <p>{{ guide.value }}</p>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </mat-card-content>
+  </mat-card>
+</div>

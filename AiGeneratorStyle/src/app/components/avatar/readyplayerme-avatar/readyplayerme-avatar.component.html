@@ -1,0 +1,219 @@
+<!-- src/app/components/avatar/readyplayerme-avatar/readyplayerme-avatar.component.html -->
+<div class="rpm-avatar-container">
+  <mat-card class="rpm-card">
+    <mat-card-header>
+      <mat-card-title>Create Your Ready Player Me Avatar</mat-card-title>
+      <mat-card-subtitle>
+        Upload a photo or create your avatar manually
+      </mat-card-subtitle>
+    </mat-card-header>
+    
+    <mat-card-content>
+      <!-- Step 1: Photo Upload -->
+      <div class="upload-section" *ngIf="currentStep === 'upload'">
+        <div class="upload-options">
+          <h3>Choose how to create your avatar:</h3>
+          
+          <!-- Photo Upload Option -->
+          <div class="option-card photo-option">
+            <mat-icon class="option-icon">add_a_photo</mat-icon>
+            <h4>Upload Your Photo</h4>
+            <p>Create a personalized avatar from your face photo</p>
+            
+            <input 
+              #photoUpload
+              type="file" 
+              accept="image/*" 
+              (change)="onPhotoSelected($event)"
+              style="display: none"
+            >
+            
+            <div class="photo-preview" *ngIf="photoPreview">
+              <img [src]="photoPreview" alt="Face preview">
+              <button 
+                mat-icon-button 
+                color="warn"
+                (click)="removePhoto()"
+                class="remove-photo"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            
+            <button 
+              mat-raised-button 
+              color="primary"
+              (click)="photoUpload.click()"
+              *ngIf="!photoPreview"
+            >
+              <mat-icon>upload</mat-icon>
+              Choose Photo
+            </button>
+          </div>
+          
+          <!-- Manual Creation Option -->
+          <div class="option-card manual-option">
+            <mat-icon class="option-icon">face</mat-icon>
+            <h4>Create Manually</h4>
+            <p>Design your avatar using Ready Player Me creator</p>
+            
+            <button 
+              mat-raised-button 
+              color="accent"
+              (click)="showReadyPlayerMeCreator()"
+            >
+              <mat-icon>create</mat-icon>
+              Open Creator
+            </button>
+          </div>
+        </div>
+        
+        <!-- Gender Selection -->
+        <div class="gender-selection">
+          <h4>Select Avatar Type:</h4>
+          <div class="gender-buttons">
+            <button 
+              mat-stroked-button
+              [color]="rpmConfig.gender === 'male' ? 'primary' : ''"
+              (click)="updateConfig({ gender: 'male' })"
+            >
+              <mat-icon>male</mat-icon>
+              Male
+            </button>
+            <button 
+              mat-stroked-button
+              [color]="rpmConfig.gender === 'female' ? 'primary' : ''"
+              (click)="updateConfig({ gender: 'female' })"
+            >
+              <mat-icon>female</mat-icon>
+              Female
+            </button>
+            <button 
+              mat-stroked-button
+              [color]="rpmConfig.gender === 'neutral' ? 'primary' : ''"
+              (click)="updateConfig({ gender: 'neutral' })"
+            >
+              <mat-icon>person</mat-icon>
+              Neutral
+            </button>
+          </div>
+        </div>
+        
+        <!-- Continue Button -->
+        <div class="action-buttons" *ngIf="photoPreview">
+          <button 
+            mat-raised-button 
+            color="primary"
+            (click)="startAvatarCreation()"
+            [disabled]="loading"
+          >
+            <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+            <span *ngIf="!loading">Create Avatar with Photo</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 2: Ready Player Me Creator -->
+      <div class="creator-section" *ngIf="currentStep === 'customize' && showIframe">
+        <div class="iframe-wrapper">
+          <div class="iframe-container">
+            <iframe
+              #rpmFrame
+              [src]="iframeUrl"
+              class="rpm-iframe"
+              allow="camera; microphone; clipboard-write"
+              allowfullscreen
+            ></iframe>
+          </div>
+        </div>
+        
+        <div class="creator-info">
+          <mat-icon>info</mat-icon>
+          <p>
+            Use the Ready Player Me creator above to design your avatar. 
+            When you're done, your avatar will be automatically saved.
+          </p>
+        </div>
+        
+        <div class="action-buttons">
+          <button 
+            mat-button
+            (click)="reset()"
+          >
+            <mat-icon>arrow_back</mat-icon>
+            Back
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 3: Complete -->
+      <div class="complete-section" *ngIf="currentStep === 'complete'">
+        <div class="success-message">
+          <mat-icon class="success-icon">check_circle</mat-icon>
+          <h3>Avatar Created Successfully!</h3>
+          <p>Your Ready Player Me avatar is ready to use.</p>
+        </div>
+        
+        <div class="avatar-preview" *ngIf="avatarUrl">
+          <img 
+            [src]="avatarUrl.replace('.glb', '.png')" 
+            alt="Avatar preview"
+            (error)="onImageError($event)"
+          >
+        </div>
+        
+        <div class="action-buttons">
+          <button 
+            mat-raised-button 
+            color="primary"
+            (click)="reset()"
+          >
+            <mat-icon>add</mat-icon>
+            Create Another Avatar
+          </button>
+        </div>
+      </div>
+      
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" *ngIf="loading && currentStep !== 'upload'">
+        <mat-spinner></mat-spinner>
+        <p>Processing your avatar...</p>
+      </div>
+    </mat-card-content>
+  </mat-card>
+  
+  <!-- Info Card -->
+  <mat-card class="info-card">
+    <mat-card-header>
+      <mat-card-title>About Ready Player Me</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <ul>
+        <li>
+          <mat-icon>check</mat-icon>
+          <span>Create personalized 3D avatars from photos</span>
+        </li>
+        <li>
+          <mat-icon>check</mat-icon>
+          <span>Customize face, hair, clothing, and accessories</span>
+        </li>
+        <li>
+          <mat-icon>check</mat-icon>
+          <span>Full-body avatars with accurate proportions</span>
+        </li>
+        <li>
+          <mat-icon>check</mat-icon>
+          <span>Export in GLB format for use in any 3D application</span>
+        </li>
+      </ul>
+      
+      <div class="subdomain-info" *ngIf="iframeConfig.subdomain">
+        <mat-divider></mat-divider>
+        <p class="subdomain-text">
+          <mat-icon>domain</mat-icon>
+          Using subdomain: <strong>{{ iframeConfig.subdomain }}</strong>
+        </p>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
