@@ -11,6 +11,7 @@ import json
 import os
 import requests
 import base64
+import httpx
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -105,39 +106,21 @@ async def generate_avatar(measurements: SimpleMeasurements):
         # Generate unique avatar ID
         avatar_id = f"rpm_avatar_{uuid.uuid4().hex[:8]}"
         
-        # Try API first, fall back to iframe URL if it fails
-        rpm_result = await create_readyplayerme_avatar_api(measurements.dict())
-        
-        if rpm_result["success"]:
-            avatar_data = {
-                "avatarId": avatar_id,
-                "avatarUrl": rpm_result["avatarUrl"],
-                "thumbnailUrl": rpm_result.get("thumbnailUrl", generate_thumbnail_url()),
-                "metadata": {
-                    "created_at": datetime.now().isoformat(),
-                    "measurements": measurements.dict(),
-                    "provider": "readyplayerme-api",
-                    "version": "1.0",
-                    "isHumanModel": True,
-                    "rpmId": rpm_result.get("rpmId")
-                }
+        # Since Ready Player Me API requires authentication that we don't have properly configured,
+        # we'll use the iframe approach which is more reliable
+        avatar_data = {
+            "avatarId": avatar_id,
+            "avatarUrl": get_default_avatar_url(measurements.dict()),
+            "thumbnailUrl": generate_thumbnail_url(),
+            "metadata": {
+                "created_at": datetime.now().isoformat(),
+                "measurements": measurements.dict(),
+                "provider": "readyplayerme-default",
+                "version": "1.0",
+                "isHumanModel": True,
+                "note": "Use the iframe integration for custom avatars"
             }
-        else:
-            # Fallback to default avatar
-            logger.warning(f"RPM API failed: {rpm_result.get('error')}")
-            avatar_data = {
-                "avatarId": avatar_id,
-                "avatarUrl": get_fallback_avatar_url(measurements.dict()),
-                "thumbnailUrl": generate_thumbnail_url(),
-                "metadata": {
-                    "created_at": datetime.now().isoformat(),
-                    "measurements": measurements.dict(),
-                    "provider": "fallback",
-                    "version": "1.0",
-                    "isHumanModel": True,
-                    "error": rpm_result.get("error", "Unknown error")
-                }
-            }
+        }
         
         # Store in memory
         avatars_db[avatar_id] = avatar_data
@@ -152,8 +135,11 @@ async def generate_avatar(measurements: SimpleMeasurements):
 @app.get("/api/avatar/iframe-config")
 async def get_iframe_config():
     """Get Ready Player Me iframe configuration"""
+    # Build the correct iframe URL with all necessary parameters
+    base_url = f"https://{RPM_SUBDOMAIN}.readyplayer.me/avatar"
+    
     return {
-        "iframeUrl": f"https://{RPM_SUBDOMAIN}.readyplayer.me/avatar",
+        "iframeUrl": base_url,
         "subdomain": RPM_SUBDOMAIN,
         "parameters": {
             "frameApi": "",
@@ -162,10 +148,16 @@ async def get_iframe_config():
             "quickStart": "false",
             "gender": "neutral"
         },
+        "instructions": [
+            "1. The iframe will open the Ready Player Me avatar creator",
+            "2. You can upload a photo or create an avatar manually",
+            "3. When done, the iframe will send a message with the avatar URL",
+            "4. Listen for window.postMessage events from the iframe"
+        ],
         "example": f"""
         <iframe 
             id="rpm-iframe"
-            src="https://{RPM_SUBDOMAIN}.readyplayer.me/avatar?frameApi&clearCache" 
+            src="{base_url}?frameApi&clearCache" 
             width="100%" 
             height="600px"
             allow="camera; microphone; clipboard-write"
@@ -174,14 +166,43 @@ async def get_iframe_config():
         
         <script>
         window.addEventListener('message', (event) => {{
-            if (event.origin === 'https://{RPM_SUBDOMAIN}.readyplayer.me') {{
-                const data = JSON.parse(event.data);
-                if (data.eventName === 'v1.avatar.exported') {{
-                    console.log('Avatar URL:', data.data.url);
-                    // Send to your backend
-                }}
+            // Check if the message is from Ready Player Me
+            const validOrigins = [
+                'https://{RPM_SUBDOMAIN}.readyplayer.me',
+                'https://readyplayer.me'
+            ];
+            
+            if (!validOrigins.includes(event.origin)) return;
+            
+            // Parse the message
+            const message = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            
+            // Handle avatar export
+            if (message.eventName === 'v1.avatar.exported') {{
+                console.log('Avatar URL:', message.data.url);
+                // Send this URL to your backend
+                saveAvatarToBackend(message.data.url);
             }}
         }});
+        
+        function saveAvatarToBackend(avatarUrl) {{
+            fetch('/api/avatar/from-iframe', {{
+                method: 'POST',
+                headers: {{
+                    'Content-Type': 'application/json'
+                }},
+                body: JSON.stringify({{
+                    avatarUrl: avatarUrl,
+                    measurements: {{
+                        height: 170,
+                        weight: 70,
+                        chest: 95,
+                        waist: 80,
+                        hips: 95
+                    }}
+                }})
+            }});
+        }}
         </script>
         """
     }
@@ -192,9 +213,10 @@ async def save_avatar_from_iframe(request: IframeAvatarRequest):
     try:
         avatar_id = f"rpm_avatar_{uuid.uuid4().hex[:8]}"
         
-        # Extract RPM avatar ID from URL
+        # Extract RPM avatar ID from URL if possible
         rpm_id = None
         if "models.readyplayer.me" in request.avatarUrl:
+            # URL format: https://models.readyplayer.me/[avatar-id].glb
             rpm_id = request.avatarUrl.split("/")[-1].replace(".glb", "")
         
         avatar_data = {
@@ -242,23 +264,24 @@ async def update_avatar(avatar_id: str, measurements: SimpleMeasurements):
 
 @app.post("/api/avatar/{avatar_id}/face")
 async def process_face_photo(avatar_id: str, face_photo: UploadFile = File(...)):
-    """Process face photo for avatar"""
+    """Process face photo for avatar - guides user to use iframe instead"""
     try:
         if avatar_id not in avatars_db:
             raise HTTPException(status_code=404, detail="Avatar not found")
         
-        # Read the uploaded file
-        contents = await face_photo.read()
-        
-        # For now, just mark that a face photo was uploaded
-        avatars_db[avatar_id]["metadata"]["hasFacePhoto"] = True
-        avatars_db[avatar_id]["metadata"]["facePhotoProcessed"] = datetime.now().isoformat()
-        
+        # Since we can't directly process photos with RPM API without proper auth,
+        # we'll guide the user to use the iframe
         return {
-            "success": True,
+            "success": False,
             "avatarId": avatar_id,
-            "message": "Face photo processed successfully",
-            "note": "Use the iframe integration for real-time face photo avatar creation"
+            "message": "Photo upload is not available through the API. Please use the Ready Player Me iframe to upload your photo.",
+            "iframeUrl": f"https://{RPM_SUBDOMAIN}.readyplayer.me/avatar?frameApi",
+            "instructions": [
+                "1. Click 'Open Creator' to access Ready Player Me",
+                "2. Choose 'Take a photo' or 'Upload a photo'",
+                "3. Follow the instructions to create your avatar",
+                "4. Your avatar will be automatically saved when complete"
+            ]
         }
         
     except Exception as e:
@@ -269,145 +292,26 @@ async def process_face_photo(avatar_id: str, face_photo: UploadFile = File(...))
         }
 
 # Helper functions
-async def create_readyplayerme_avatar_api(measurements: Dict) -> Dict:
-    """Create Ready Player Me avatar using API"""
-    
-    if not RPM_API_KEY or not RPM_PARTNER_ID:
-        return {
-            "success": False,
-            "error": "Ready Player Me not configured"
-        }
-    
-    # Try different authentication methods
-    auth_methods = [
-        {"X-API-Key": RPM_API_KEY},
-        {"Authorization": f"Bearer {RPM_API_KEY}"},
-        {"Authorization": RPM_API_KEY}
-    ]
-    
-    # Try both v1 and v2 endpoints
-    endpoints = [
-        ("https://api.readyplayer.me/v2/avatars", "v2"),
-        ("https://api.readyplayer.me/v1/avatars", "v1")
-    ]
-    
-    for headers_auth in auth_methods:
-        for endpoint, version in endpoints:
-            try:
-                headers = {
-                    **headers_auth,
-                    'Content-Type': 'application/json'
-                }
-                
-                if version == "v1":
-                    payload = create_v1_payload(measurements)
-                else:
-                    payload = create_v2_payload(measurements)
-                
-                response = requests.post(endpoint, headers=headers, json=payload, timeout=10)
-                
-                logger.info(f"RPM API {version} with {list(headers_auth.keys())[0]} - Status: {response.status_code}")
-                
-                if response.status_code in [200, 201]:
-                    data = response.json()
-                    logger.info(f"RPM API Success: {data}")
-                    return {
-                        "success": True,
-                        "avatarUrl": data.get("glb") or data.get("url") or data.get("avatarUrl", ""),
-                        "thumbnailUrl": data.get("thumbnail", ""),
-                        "rpmId": data.get("id", "")
-                    }
-                else:
-                    logger.error(f"RPM API {version} error: {response.status_code} - {response.text}")
-                    
-            except Exception as e:
-                logger.error(f"RPM API {version} exception: {e}")
-                continue
-    
-    return {
-        "success": False,
-        "error": "All API endpoints failed"
-    }
-
-def create_v1_payload(measurements: Dict) -> Dict:
-    """Create v1 API payload"""
-    return {
-        "data": {
-            "userId": measurements.get("userId", f"user_{uuid.uuid4().hex[:8]}"),
-            "partner": RPM_PARTNER_ID,
-            "data": {
-                "gender": measurements.get("gender", "neutral"),
-                "bodyType": "fullbody",
-                "generationType": "automatic",
-                "recognizedData": {
-                    "eyeColor": "#4A90E2",
-                    "lipsColor": "#E91E63",
-                    "hairColor": "#8B4513",
-                    "shapes": {},
-                    "skinColor": {
-                        "general": "#FDBCB4",
-                        "cheeks": "#FFB6C1",
-                        "nose": "#FDBCB4",
-                        "forehead": "#FDBCB4",
-                        "lips": "#E91E63"
-                    },
-                    "texture": "default"
-                },
-                "userData": {
-                    "bodyShape": calculate_body_shape(measurements),
-                    "age": "young"
-                }
-            }
-        }
-    }
-
-def create_v2_payload(measurements: Dict) -> Dict:
-    """Create v2 API payload"""
-    return {
-        "data": {
-            "partner": RPM_PARTNER_ID,
-            "bodyType": "fullbody",
-            "gender": measurements.get("gender", "neutral"),
-            "assets": {
-                "skinColor": 1,
-                "eyeColor": "blue",
-                "hairStyle": "short",
-                "hairColor": 3,
-                "bodyShape": calculate_body_shape(measurements)
-            },
-            "base64Image": ""
-        }
-    }
-
-def calculate_body_shape(measurements: Dict) -> str:
-    """Calculate body shape from measurements"""
-    if "height" in measurements and "weight" in measurements:
-        height_m = measurements["height"] / 100
-        bmi = measurements["weight"] / (height_m ** 2)
-        
-        if bmi < 18.5:
-            return "athletic"
-        elif bmi < 25:
-            return "average"
-        elif bmi < 30:
-            return "heavyset"
-        else:
-            return "plussize"
-    
-    return "average"
-
-def get_fallback_avatar_url(measurements: Dict) -> str:
-    """Get fallback avatar URL when RPM fails"""
+def get_default_avatar_url(measurements: Dict) -> str:
+    """Get a default avatar URL based on gender"""
     gender = measurements.get("gender", "neutral")
     
-    # Working GLB models - using Three.js examples
-    avatars = {
+    # Use working GLB models from various sources
+    default_avatars = {
+        # Three.js example models (these are reliable and always available)
         "male": "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Xbot.glb",
         "female": "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Michelle.glb",
-        "neutral": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb"
+        "neutral": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb",
+        
+        # Alternative: Mixamo models
+        "male_alt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BrainStem/glTF-Binary/BrainStem.glb",
+        "female_alt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb",
+        
+        # Fallback simple model
+        "fallback": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb"
     }
     
-    return avatars.get(gender, avatars["neutral"])
+    return default_avatars.get(gender, default_avatars["neutral"])
 
 def generate_thumbnail_url() -> str:
     """Generate a placeholder thumbnail"""
@@ -415,7 +319,7 @@ def generate_thumbnail_url() -> str:
 
 @app.get("/api/test-rpm")
 async def test_ready_player_me():
-    """Test Ready Player Me configuration"""
+    """Test Ready Player Me configuration and provide setup instructions"""
     return {
         "configured": bool(RPM_API_KEY and RPM_PARTNER_ID),
         "apiKey": f"...{RPM_API_KEY[-4:]}" if RPM_API_KEY else None,
@@ -423,11 +327,68 @@ async def test_ready_player_me():
         "appId": RPM_APP_ID,
         "orgId": RPM_ORG_ID,
         "subdomain": RPM_SUBDOMAIN,
-        "iframeUrl": f"https://{RPM_SUBDOMAIN}.readyplayer.me/avatar"
+        "iframeUrl": f"https://{RPM_SUBDOMAIN}.readyplayer.me/avatar",
+        "status": "Ready Player Me is best used through the iframe integration",
+        "instructions": {
+            "1": "Use the iframe URL provided above in your frontend",
+            "2": "The iframe handles authentication automatically",
+            "3": "Users can upload photos or create avatars manually",
+            "4": "Listen for postMessage events to get the avatar URL"
+        }
+    }
+
+@app.get("/api/clothing/catalog")
+async def get_clothing_catalog():
+    """Get available clothing items (mock data for now)"""
+    return [
+        {
+            "id": "shirt_001",
+            "name": "Basic T-Shirt",
+            "type": "shirt",
+            "modelUrl": "https://example.com/tshirt.glb",
+            "thumbnailUrl": "https://example.com/tshirt.png",
+            "sizes": ["XS", "S", "M", "L", "XL"],
+            "colors": ["white", "black", "blue", "red"],
+            "price": 29.99
+        },
+        {
+            "id": "pants_001", 
+            "name": "Classic Jeans",
+            "type": "pants",
+            "modelUrl": "https://example.com/jeans.glb",
+            "thumbnailUrl": "https://example.com/jeans.png",
+            "sizes": ["XS", "S", "M", "L", "XL"],
+            "colors": ["blue", "black", "grey"],
+            "price": 79.99
+        },
+        {
+            "id": "dress_001",
+            "name": "Summer Dress",
+            "type": "dress",
+            "modelUrl": "https://example.com/dress.glb", 
+            "thumbnailUrl": "https://example.com/dress.png",
+            "sizes": ["XS", "S", "M", "L", "XL"],
+            "colors": ["red", "blue", "floral"],
+            "price": 59.99
+        }
+    ]
+
+@app.post("/api/clothing/fit")
+async def fit_clothing_to_avatar(request: Dict[str, Any]):
+    """Fit clothing to avatar (mock implementation)"""
+    return {
+        "success": True,
+        "fittedModelUrl": request.get("clothingUrl", "https://example.com/fitted-clothing.glb"),
+        "fitScore": 0.92,
+        "recommendations": [
+            "Size M fits perfectly",
+            "Consider size L for a looser fit"
+        ]
     }
 
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting AI Avatar Clothing Fit API...")
-    logger.info(f"Ready Player Me configured: {bool(RPM_API_KEY and RPM_PARTNER_ID)}")
+    logger.info(f"Ready Player Me subdomain: {RPM_SUBDOMAIN}")
+    logger.info("Note: Using iframe integration for avatar creation")
     uvicorn.run(app, host=API_HOST, port=API_PORT, reload=DEV_MODE)

@@ -12,7 +12,6 @@
       <!-- Step 1: Photo Upload -->
       <div class="upload-section" *ngIf="currentStep === 'upload'">
         <div class="upload-options">
-          <h3>Choose how to create your avatar:</h3>
           
           <!-- Photo Upload Option -->
           <div class="option-card photo-option">
@@ -207,11 +206,11 @@
         </li>
       </ul>
       
-      <div class="subdomain-info" *ngIf="iframeConfig.subdomain">
+      <div class="subdomain-info" *ngIf="iframeConfig?.subdomain">
         <mat-divider></mat-divider>
         <p class="subdomain-text">
           <mat-icon>domain</mat-icon>
-          Using subdomain: <strong>{{ iframeConfig.subdomain }}</strong>
+          Using subdomain: <strong>{{ iframeConfig?.subdomain }}</strong>
         </p>
       </div>
     </mat-card-content>

@@ -283,18 +283,21 @@ export class MeasurementFormComponent implements OnInit {
             .processFacePhoto(response.avatarId, this.facePhotoFile)
             .toPromise();
           
-          if (faceResponse?.updatedAvatarUrl) {
-            response.avatarUrl = faceResponse.updatedAvatarUrl;
+          // The face photo endpoint now returns instructions to use iframe
+          if (faceResponse && !faceResponse.success) {
+            this.snackBar.open(
+              'To use your photo, please use the Ready Player Me creator', 
+              'OK', 
+              { duration: 5000 }
+            );
           }
         } catch (faceError) {
-          console.error('Face processing failed:', faceError);
-          this.snackBar.open('Avatar created but face processing failed', 'OK', {
-            duration: 3000
-          });
+          console.error('Face processing note:', faceError);
+          // Don't show error, face photos are handled via iframe
         }
       }
       
-      // Emit result
+      // Emit result with the generated avatar
       const result: AvatarGenerationResult = {
         avatarId: response.avatarId,
         avatarUrl: response.avatarUrl,
@@ -307,6 +310,19 @@ export class MeasurementFormComponent implements OnInit {
       this.snackBar.open('Avatar generated successfully!', 'OK', {
         duration: 3000
       });
+      
+      // If user uploaded a photo, suggest using Ready Player Me
+      if (this.facePhotoFile) {
+        setTimeout(() => {
+          this.snackBar.open(
+            'For custom face avatars, try the Ready Player Me option', 
+            'Go There', 
+            { duration: 5000 }
+          ).onAction().subscribe(() => {
+            // User clicked "Go There" - you could emit an event to switch to RPM
+          });
+        }, 3500);
+      }
       
     } catch (error) {
       console.error('Avatar generation failed:', error);

@@ -151,7 +151,8 @@ export class HomeComponent implements OnInit {
   }
   
   editAvatar() {
-    if (this.avatarData?.metadata?.provider === 'readyplayerme') {
+    if (this.avatarData?.metadata?.provider === 'readyplayerme' || 
+        this.avatarData?.metadata?.provider === 'readyplayerme-iframe') {
       this.showReadyPlayerMe = true;
       this.avatarData = null;
     } else {
@@ -162,8 +163,8 @@ export class HomeComponent implements OnInit {
   
   resetAvatar() {
     if (confirm('Are you sure you want to reset? This will delete your current avatar and measurements.')) {
-      // Clear stored data
-      this.avatarService.clearStoredAvatar();
+      // Clear stored data using the correct method name
+      this.avatarService.clearCurrentAvatar();
       localStorage.removeItem('userMeasurements');
       
       // Reset component state
@@ -190,7 +191,26 @@ export class HomeComponent implements OnInit {
     if (!this.selectedPhoto) return;
     this.isUploadingPhoto = true;
     
-    // Generate a temporary avatar to get an ID
+    // For quick photo upload, redirect to Ready Player Me
+    this.snackBar.open(
+      'Quick photo upload will open Ready Player Me creator', 
+      'Continue', 
+      { duration: 4000 }
+    ).onAction().subscribe(() => {
+      this.showReadyPlayerMe = true;
+      this.isUploadingPhoto = false;
+    });
+    
+    // Alternative: Generate a default avatar and inform about photo usage
+    setTimeout(() => {
+      if (!this.showReadyPlayerMe && this.isUploadingPhoto) {
+        this.generateDefaultAvatarWithPhoto();
+      }
+    }, 4500);
+  }
+  
+  private generateDefaultAvatarWithPhoto() {
+    // Generate a temporary avatar with default measurements
     const measurements = this.currentMeasurements || { 
       height: 170, 
       weight: 70, 
@@ -201,37 +221,72 @@ export class HomeComponent implements OnInit {
       bodyType: 'average' 
     };
     
-    this.avatarService.generateAvatar(measurements).subscribe(avatar => {
-      this.avatarService.processFacePhoto(avatar.avatarId, this.selectedPhoto!).subscribe(
-        (response) => {
-          this.isUploadingPhoto = false;
-          if (response.success && response.updatedAvatarUrl) {
-            this.avatarData = {
-              avatarId: avatar.avatarId,
-              avatarUrl: response.updatedAvatarUrl,
-              thumbnailUrl: response.updatedThumbnailUrl || avatar.thumbnailUrl,
-              measurements: measurements,
-              metadata: {
-                ...avatar.metadata,
-                hasFacePhoto: true,
-                provider: 'readyplayerme'
-              }
-            };
-            
-            // Hide forms
-            this.showMeasurementForm = false;
-            this.showReadyPlayerMe = false;
-            
-            this.snackBar.open('Photo uploaded and 3D avatar generated!', 'Close', { duration: 3000 });
-          } else {
-            this.snackBar.open('Failed to process photo: ' + (response.error || response.message), 'Close', { duration: 4000 });
-          }
-        },
-        (error) => {
-          this.isUploadingPhoto = false;
-          this.snackBar.open('Photo upload failed.', 'Close', { duration: 4000 });
+    this.avatarService.generateAvatar(measurements).subscribe({
+      next: (avatar) => {
+        this.isUploadingPhoto = false;
+        
+        // Process face photo to get instructions
+        if (this.selectedPhoto) {
+          this.avatarService.processFacePhoto(avatar.avatarId, this.selectedPhoto).subscribe({
+            next: (response) => {
+              // The API now returns instructions to use iframe
+              console.log('Face photo response:', response);
+              
+              // Create avatar data without face (since it needs iframe)
+              this.avatarData = {
+                avatarId: avatar.avatarId,
+                avatarUrl: avatar.avatarUrl,
+                thumbnailUrl: avatar.thumbnailUrl,
+                measurements: measurements,
+                metadata: {
+                  ...avatar.metadata,
+                  note: 'Use Ready Player Me for custom face avatars'
+                }
+              };
+              
+              // Hide forms
+              this.showMeasurementForm = false;
+              this.showReadyPlayerMe = false;
+              
+              // Show informative message
+              this.snackBar.open(
+                'Avatar created! For custom faces, use Ready Player Me option', 
+                'Try It', 
+                { duration: 5000 }
+              ).onAction().subscribe(() => {
+                this.showReadyPlayerMe = true;
+                this.avatarData = null;
+              });
+            },
+            error: (error) => {
+              console.error('Face photo note:', error);
+              // Still show the avatar
+              this.showAvatarWithoutFace(avatar, measurements);
+            }
+          });
+        } else {
+          this.showAvatarWithoutFace(avatar, measurements);
         }
-      );
+      },
+      error: (error) => {
+        this.isUploadingPhoto = false;
+        this.snackBar.open('Failed to generate avatar', 'Close', { duration: 4000 });
+        console.error('Avatar generation error:', error);
+      }
     });
+  }
+  
+  private showAvatarWithoutFace(avatar: any, measurements: any) {
+    this.avatarData = {
+      avatarId: avatar.avatarId,
+      avatarUrl: avatar.avatarUrl,
+      thumbnailUrl: avatar.thumbnailUrl,
+      measurements: measurements,
+      metadata: avatar.metadata
+    };
+    
+    // Hide forms
+    this.showMeasurementForm = false;
+    this.showReadyPlayerMe = false;
   }
 }

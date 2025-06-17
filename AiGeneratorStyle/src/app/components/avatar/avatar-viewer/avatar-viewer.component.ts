@@ -105,10 +105,10 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
   private resizeSubject = new Subject<void>();
   private destroy$ = new Subject<void>();
   
-  // Fixed camera settings
-  private readonly CAMERA_DISTANCE = 3;
-  private readonly CAMERA_HEIGHT = 1.5;
-  private readonly CAMERA_TARGET_HEIGHT = 0.85;
+  // Camera settings (will be updated based on model size)
+  private CAMERA_DISTANCE = 3;
+  private CAMERA_HEIGHT = 1.5;
+  private CAMERA_TARGET_HEIGHT = 0.85;
   
   constructor() {}
   
@@ -146,7 +146,7 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
     this.scene.background = new THREE.Color(0xf5f5f5);
     this.scene.fog = new THREE.Fog(0xf5f5f5, 10, 50);
     
-    // Camera setup with fixed position
+    // Camera setup
     this.camera = new THREE.PerspectiveCamera(
       45,
       width / height,
@@ -163,7 +163,7 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
     });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     this.renderer.shadowMap.enabled = true;
@@ -323,20 +323,23 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
       this.avatarGroup.position.x = -center.x;
       this.avatarGroup.position.z = -center.z;
       
-      // Scale to realistic human height (half the normal size)
+      // Scale to realistic human height
       const currentHeight = size.y;
       let targetHeight = 1.7; // Default 1.7m (170cm)
       if (this.avatarData?.measurements?.height) {
         targetHeight = this.avatarData.measurements.height / 100; // Convert cm to meters
       }
-      // Make the avatar 2 times smaller
-      const scaleFactor = (targetHeight / currentHeight) * 0.25; // Changed from 0.5 to 0.25 for 2x smaller
+      const scaleFactor = targetHeight / currentHeight;
       this.avatarGroup.scale.set(scaleFactor, scaleFactor, scaleFactor);
       
       // Place feet on ground after scaling
-      this.avatarGroup.position.y = -box.min.y * 0;
+      const scaledBox = new THREE.Box3().setFromObject(this.avatarGroup);
+      this.avatarGroup.position.y = -scaledBox.min.y;
       
       this.scene.add(this.avatarGroup);
+      
+      // Auto-adjust camera to frame the avatar properly
+      this.adjustCameraToModel(scaledBox);
       
       // Setup animations if available
       if (gltf.animations && gltf.animations.length > 0) {
@@ -359,6 +362,31 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
     }
   }
   
+  private adjustCameraToModel(box: THREE.Box3): void {
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = this.camera.fov * (Math.PI / 180);
+    
+    // Calculate camera distance to fit the model
+    let cameraDistance = maxDim / (2 * Math.tan(fov / 2));
+    cameraDistance *= 2.2; // Add some padding
+    
+    // Update camera parameters
+    this.CAMERA_DISTANCE = cameraDistance;
+    this.CAMERA_HEIGHT = size.y * 0.6;
+    this.CAMERA_TARGET_HEIGHT = size.y * 0.5;
+    
+    // Apply to camera
+    this.camera.position.set(0, this.CAMERA_HEIGHT, this.CAMERA_DISTANCE);
+    this.controls.target.set(0, this.CAMERA_TARGET_HEIGHT, 0);
+    
+    // Update controls bounds
+    this.controls.minDistance = cameraDistance * 0.5;
+    this.controls.maxDistance = cameraDistance * 3;
+    
+    this.controls.update();
+  }
+  
   private applyFaceTexture(): void {
     if (!this.avatarGroup || !this.avatarData?.facePhotoUrl) return;
     
@@ -373,7 +401,7 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
           textureLoader.load(
             this.avatarData!.facePhotoUrl!,
             (texture) => {
-              texture.encoding = THREE.sRGBEncoding;
+              texture.colorSpace = THREE.SRGBColorSpace;
               texture.flipY = false;
               
               const skinMaterial = new THREE.MeshStandardMaterial({
@@ -444,7 +472,7 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
           if (clothing.textureUrl && child.material) {
             const textureLoader = new THREE.TextureLoader();
             textureLoader.load(clothing.textureUrl, (texture) => {
-              texture.encoding = THREE.sRGBEncoding;
+              texture.colorSpace = THREE.SRGBColorSpace;
               if (child.material instanceof THREE.MeshStandardMaterial) {
                 child.material.map = texture;
                 child.material.needsUpdate = true;
@@ -665,11 +693,12 @@ export class AvatarViewerComponent implements OnInit, OnDestroy, OnChanges {
     if (this.showMeasurements) {
       this.createMeasurementLines();
       // Pull camera back when showing measurements
-      this.camera.position.set(2.5, this.CAMERA_HEIGHT, 5);
+      const currentDistance = this.camera.position.length();
+      this.camera.position.multiplyScalar(1.5);
       this.controls.update();
     } else {
       this.removeMeasurementLines();
-      // Reset to default camera position
+      // Reset camera position
       this.setView(this.currentView);
     }
   }
